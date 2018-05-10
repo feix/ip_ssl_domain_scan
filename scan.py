@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import re
 import os
@@ -8,9 +8,11 @@ import socket
 import sqlite3
 import asyncio
 
+ROOT = os.path.dirname(os.path.abspath(__file__))
 
-def prepare_db(result_db="./ip_domain_scan.db"):
-    conn = sqlite3.connect(result_db)
+
+def prepare_db(db_name="./results.db"):
+    conn = sqlite3.connect(db_name)
     cur = conn.cursor()
     cur.execute('CREATE TABLE IF NOT EXISTS ip_domain(ip text, domains text)')
     conn.commit()
@@ -19,7 +21,7 @@ def prepare_db(result_db="./ip_domain_scan.db"):
 
 # prepare masscan, return masscan_bin path
 def prepare_masscan():
-    masscan_path = './masscan'
+    masscan_path = '../masscan'
     masscan_bin = os.path.join(masscan_path, 'bin', 'masscan')
     if not os.path.exists(masscan_bin):
         # Download and Build masscan from https://github.com/robertdavidgraham/masscan.git
@@ -28,13 +30,13 @@ def prepare_masscan():
 
 
 # scan target network, write result to output file
-def execute_masscan(masscan_bin, target='127.0.0.1/32', output='./masscan.json'):
+def execute_masscan(masscan_bin, output, target='127.0.0.1/32'):
     command = [masscan_bin, '-p443', target, '--banners', '--exclude 255.255.255.255', '-oJ {output}'.format(output=output)]
     os.system(' '.join(command))
 
 
 def remove_last_comma(output):
-    os.system('sed -i "$(( $(wc -l < {output}) - 1 )),\$s/,$//g" {output}'.format(output=output))
+    os.system('test -s {output} && sed -i "$(( $(wc -l < {output}) - 1 )),\$s/,$//g" {output}'.format(output=output))
 
 
 async def resolve_unmatched_domain(ip, domains):
@@ -63,13 +65,13 @@ async def handle_result(conn, result):
     domains = service['banner'].split(', ')[1:]
     unmatched_domains = await resolve_unmatched_domain(ip, domains)
     if len(unmatched_domains):
-        print(ip, unmatched_domains)
+        print(ip, unmatched_domains, flush=True)
         cur = conn.cursor()
         cur.execute('INSERT INTO ip_domain VALUES (?, ?)', (ip, ','.join(domains)))
         conn.commit()
 
 
-def handle_results(conn, output='./masscan.json'):
+def handle_results(conn, output):
     remove_last_comma(output)
     # file io
     with open(output) as f:
@@ -78,6 +80,7 @@ def handle_results(conn, output='./masscan.json'):
         for result in results:
             tasks.append(asyncio.ensure_future(handle_result(conn, result)))
         loop = asyncio.get_event_loop()
+        print('test asyncio', flush=True)
         loop.run_until_complete(asyncio.wait(tasks))
 
 
@@ -87,8 +90,8 @@ def main():
         target = sys.argv[1]
     conn = prepare_db()
     masscan_bin = prepare_masscan()
-    output = './masscan.json'
-    execute_masscan(masscan_bin, target, output)
+    output = './results/masscan_{}.json'.format(target.replace('/', '_'))
+    execute_masscan(masscan_bin, output, target)
     handle_results(conn, output)
     conn.close()
 

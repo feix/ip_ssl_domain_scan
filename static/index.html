@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>{{title}}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    #app {
+      width: 1000px;
+      margin: auto;
+    }
+    .el-input {
+      margin: 10px 0;
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/element-theme-default/lib/index.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.5.16/dist/vue.js"></script>
+  <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <el-input type="text" v-model="domain" placeholder="域名搜索" @change="search"></el-input>
+        <el-table :data="items" align="center" stripe border tooltip-effect="dark" style="width: auto">
+            <el-table-column prop="ip" label="ip"></el-table-column>
+            <el-table-column prop="domains" label="domains"></el-table-column>
+        </el-table>
+    </div>
+    <script>
+      var app = new Vue({
+        el: '#app',
+        data: {
+          domain: '',
+          items: [],
+        },
+        methods: {
+          search () {
+            that = this
+            axios.get('./domains', {
+              params: {domain: this.domain}
+            }).then(function (resp) {
+              that.items = resp.data
+            }).catch(function (error) {
+              console.log(error)
+            })
+          }
+        },
+        mounted () {
+        }
+      })
+    </script>
+</body>
+</html>
