@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>{{title}}</title>
+  <title>IP SSL Domain Scan</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     #app {
@@ -22,6 +22,7 @@
 <body>
     <div id="app">
         <el-input type="text" v-model="domain" placeholder="域名搜索" @change="search"></el-input>
+        <p>total: {{total}}, results: {{items.length}}</p>
         <el-table :data="items" align="center" stripe border tooltip-effect="dark" style="width: auto">
             <el-table-column prop="ip" label="ip"></el-table-column>
             <el-table-column prop="domains" label="domains"></el-table-column>
@@ -32,6 +33,7 @@
         el: '#app',
         data: {
           domain: '',
+          total: 0,
           items: [],
         },
         methods: {
@@ -44,9 +46,18 @@
             }).catch(function (error) {
               console.log(error)
             })
+          },
+          getTotal () {
+            that = this
+            axios.get('./total').then(function (resp) {
+              that.total = resp.data
+            }).catch(function (error) {
+              console.log(error)
+            })
           }
         },
         mounted () {
+          this.getTotal()
         }
       })
     </script>

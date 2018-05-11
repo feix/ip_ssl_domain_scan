@@ -30,13 +30,19 @@ def prepare_masscan():
 
 
 # scan target network, write result to output file
-def execute_masscan(masscan_bin, output, target='127.0.0.1/32'):
-    command = [masscan_bin, '-p443', target, '--banners', '--exclude 255.255.255.255', '-oJ {output}'.format(output=output)]
+def execute_masscan(masscan_bin, output, target='127.0.0.1/32', paused=False):
+    if paused:
+        command = [masscan_bin, '-c', target]
+    else:
+        command = [masscan_bin, '-p443', target, '--banners', '--exclude 255.255.255.255', '-oJ {output}'.format(output=output)]
+    print(' '.join(command))
     os.system(' '.join(command))
 
 
 def remove_last_comma(output):
-    os.system('test -s {output} && sed -i "$(( $(wc -l < {output}) - 1 )),\$s/,$//g" {output}'.format(output=output))
+    if os.stat(output).st_size > 0:
+        os.system('sed -i "$(( $(wc -l < {output}) - 1 )),\$s/,$//g" {output}'.format(output=output))
+        return True
 
 
 async def resolve_unmatched_domain(ip, domains):
@@ -72,7 +78,9 @@ async def handle_result(conn, result):
 
 
 def handle_results(conn, output):
-    remove_last_comma(output)
+    if not remove_last_comma(output):
+        print("fail to remove last comma.")
+        return
     # file io
     with open(output) as f:
         results = json.load(f)
@@ -84,14 +92,31 @@ def handle_results(conn, output):
         loop.run_until_complete(asyncio.wait(tasks))
 
 
+def usage():
+    pass
+
+
 def main():
-    target = '111.161.64.48/24'
     if len(sys.argv) > 1:
-        target = sys.argv[1]
+        paused = False
+        target = ' '.join(sys.argv[1:])
+    else:
+        paused = True
+        target = 'paused.conf'
+    if paused and not os.path.exists(os.path.join(ROOT, target)):
+        usage()
+        return
+    if len(target) < 40:
+        target_name = target
+    else:
+        target_name = '{}_etc'.format(sys.argv[1])
+    if paused:
+        output = os.system("awk '$1 ~ /output-filename/ {print $3}' {}".format(target))
+    else:
+        output = './results/masscan_{}.json'.format(target_name.replace('/', '_').replace(' ', '_'))
     conn = prepare_db()
     masscan_bin = prepare_masscan()
-    output = './results/masscan_{}.json'.format(target.replace('/', '_'))
-    execute_masscan(masscan_bin, output, target)
+    execute_masscan(masscan_bin, output, target, paused)
     handle_results(conn, output)
     conn.close()
 
